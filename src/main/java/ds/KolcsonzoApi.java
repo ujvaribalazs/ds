@@ -15,7 +15,7 @@ public class KolcsonzoApi {
     public record Location(Long id, String name, String city) {
     }
 
-    public record Car(Long id, String brandName, String model, String status,
+    public record Car(Long id, String brandName, String model, AutoUzemanyag fuelType, String status,
             Double dailyPrice, Long currentLocationId) {
     }
 
@@ -100,5 +100,12 @@ public class KolcsonzoApi {
     public static List<Kolcsonzes> foglalasaim(String accessToken) throws Exception {
         return JsonHttp.get(URL + "/api/reservations", accessToken, new TypeReference<>() {
         });
+    }
+
+    // Foglalás lemondása (az állapota CANCELLED lesz)
+    public static Kolcsonzes lemond(String reservationId, String accessToken) throws Exception {
+        return JsonHttp.post(URL + "/api/reservations/" + reservationId + "/cancel", null, accessToken,
+                new TypeReference<>() {
+                });
     }
 }

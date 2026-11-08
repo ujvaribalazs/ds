@@ -29,16 +29,19 @@ public class JsonHttp {
         HttpRequest request = requestBuilder.build();
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new RuntimeException("HTTP " + response.statusCode() + ": " + response.body());
+            throw hiba(response);
         }
         return MAPPER.readValue(response.body(), type);
     }
 
     public static <T> T post(String url, Object body, String token, TypeReference<T> type) throws Exception {
-        String json = MAPPER.writeValueAsString(body);
+        // törzs nélküli POST-nál (pl. lemondás) üres kérés megy, nem "null"
+        HttpRequest.BodyPublisher torzs = body == null
+                ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body));
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create(url))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json));
+                .POST(torzs);
         if (token != null) {
             requestBuilder.header("Authorization", "Bearer " + token);
         }
@@ -48,8 +51,21 @@ public class JsonHttp {
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new RuntimeException("HTTP " + response.statusCode() + ": " + response.body());
+            throw hiba(response);
         }
         return MAPPER.readValue(response.body(), type);
+    }
+
+    private static HttpHiba hiba(HttpResponse<String> response) {
+        String uzenet = response.body();
+        try {
+            var message = MAPPER.readTree(response.body()).get("message");
+            if (message != null && message.isTextual()) {
+                uzenet = message.asText();
+            }
+        } catch (Exception e) {
+            // nem JSON a válasz, marad a teljes szöveg
+        }
+        return new HttpHiba(response.statusCode(), uzenet);
     }
 }
