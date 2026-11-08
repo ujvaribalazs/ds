@@ -10,11 +10,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Helyi feljegyzés arról, melyik üzemanyag-foglalás melyik autókölcsönzéshez tartozik.
- * A készlet-szerver nem tudja, ki foglalt, ezért ezt a kliens tárolja egy JSON fájlban.
- * Az üzemanyag-foglalás állapotát mindig a szervertől kérdezzük le, itt csak az azonosítója van.
- */
+// Helyi feljegyzés arról, melyik üzemanyag-foglalás melyik autókölcsönzéshez tartozik.
+// A készlet-szerver nem tudja, ki foglalt, ezért ezt a kliens tárolja egy JSON fájlban.
+// Az üzemanyag-foglalás állapotát mindig a szervertől kérdezzük le, itt csak az azonosítója van.
+
 public class UzemanyagNaplo {
 
     public record Bejegyzes(String kolcsonzesId, String foglalasId, Long tartalyId, String varos,

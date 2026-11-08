@@ -9,7 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-/** GET kérés egy REST API-ra, a JSON választ Java objektummá alakítja. */
+// kérés egy REST API-ra, a JSON választ Java objektummá alakítja.
 public class JsonHttp {
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
@@ -20,7 +20,7 @@ public class JsonHttp {
         return get(url, null, type);
     }
 
-    /** GET kérés tokennel, a bejelentkezést igénylő végpontokhoz. */
+    // GET kérés tokennel, a bejelentkezést igénylő végpontokhoz.
     public static <T> T get(String url, String token, TypeReference<T> type) throws Exception {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create(url)).GET();
         if (token != null) {

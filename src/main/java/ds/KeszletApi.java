@@ -5,7 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.List;
 import java.util.Map;
 
-/** Üzemanyagkészlet API: kutak és tartályaik. */
+// Üzemanyagkészlet API: kutak és tartályaik.
 public class KeszletApi {
 
     private static final String URL = "http://68.210.202.139:8080";
@@ -26,19 +26,21 @@ public class KeszletApi {
         });
     }
 
-    public record LefoglaltUzemanyag(String id, Long fuelStockId, OperationType type, Long liters,
+    // A készlet-szolgáltatás egy művelete (foglalás, kivétel vagy feltöltés) és
+    // annak állapota.
+    public record KeszletMuvelet(String id, Long fuelStockId, OperationType type, Long liters,
             OperationStatus status,
             String failureReason) {
     }
 
-    public static LefoglaltUzemanyag foglaljUzemanyagot(Long fuelStockId, Long liters) throws Exception {
+    public static KeszletMuvelet foglaljUzemanyagot(Long fuelStockId, Long liters) throws Exception {
         return JsonHttp.post(URL + "/api/stocks/" + fuelStockId + "/reservations",
-                Map.of("liters", liters), null, new TypeReference<LefoglaltUzemanyag>() {
+                Map.of("liters", liters), null, new TypeReference<KeszletMuvelet>() {
                 });
     }
 
-    /** Egy beküldött feladat (pl. foglalás) aktuális állapota. */
-    public static LefoglaltUzemanyag feladat(String operationId) throws Exception {
+    // Egy beküldött művelet (pl. foglalás) aktuális állapota.
+    public static KeszletMuvelet muvelet(String operationId) throws Exception {
         return JsonHttp.get(URL + "/api/operations/" + operationId, new TypeReference<>() {
         });
     }

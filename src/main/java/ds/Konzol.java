@@ -2,22 +2,23 @@ package ds;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 
 import ds.KeszletApi.FuelStock;
-import ds.KeszletApi.LefoglaltUzemanyag;
+import ds.KeszletApi.KeszletMuvelet;
 import ds.KeszletApi.Station;
 import ds.KolcsonzoApi.Bejelentkezes;
 import ds.KolcsonzoApi.Car;
 import ds.KolcsonzoApi.Kolcsonzes;
 import ds.KolcsonzoApi.Location;
 import ds.UzemanyagNaplo.Bejegyzes;
+import ds.UzemanyagSzolgaltatas.KutTartaly;
 
-/** Konzolos felület: autókölcsönzés, és a kölcsönzött autókhoz üzemanyag-foglalás. */
+//Konzolos felület: autókölcsönzés, és a kölcsönzött autókhoz üzemanyag-foglalás.
+//Az üzleti logika a KolcsonzesSzolgaltatas és az UzemanyagSzolgaltatas osztályban vannak.
 public class Konzol {
     static Scanner in = new Scanner(System.in);
 
@@ -36,7 +37,7 @@ public class Konzol {
         return bejelentkezes.accessToken();
     }
 
-    // ===== Főmenü =====
+    // Főmenü
 
     public static void futtat() throws Exception {
         System.out.println("=== Autókölcsönző ===");
@@ -60,7 +61,7 @@ public class Konzol {
                 switch (valasz) {
                     case "1" -> listazzAutokat();
                     case "2" -> kolcsonozz();
-                    case "3" -> listazzFoglalasaimat();
+                    case "3" -> listazdFoglalasaimat();
                     case "4" -> foglaljUzemanyagotKolcsonzeshez();
                     case "5" -> mondjLeKolcsonzest();
                     case "0" -> {
@@ -71,7 +72,7 @@ public class Konzol {
                 }
             } catch (HttpHiba e) {
                 if (e.statusz() == 401) {
-                    // a kölcsönző tokenje 15 percig érvényes
+                    // a kölcsönző tokenje csak 15 percig érvényes
                     System.out.println("Lejárt a bejelentkezésed, lépj be újra.");
                     bejelentkezes = bejelentkezik();
                 } else {
@@ -83,13 +84,13 @@ public class Konzol {
         }
     }
 
-    // ===== Belépés =====
+    // Belépés
 
     private static void regisztral() throws Exception {
         System.out.println("=== Regisztráció ===");
         while (true) {
             try {
-                var user = KolcsonzoApi.register(kerdez("Email"), kerdez("Jelszó"), kerdez("Keresztnév"),
+                var user = KolcsonzesSzolgaltatas.regisztral(kerdez("Email"), kerdez("Jelszó"), kerdez("Keresztnév"),
                         kerdez("Vezetéknév"), kerdez("Jogosítványszám"));
                 System.out.println("Sikeres regisztráció: " + user.email());
                 return;
@@ -103,7 +104,7 @@ public class Konzol {
         System.out.println("=== Bejelentkezés ===");
         while (true) {
             try {
-                var b = KolcsonzoApi.login(kerdez("Email"), kerdez("Jelszó"));
+                var b = KolcsonzesSzolgaltatas.bejelentkezik(kerdez("Email"), kerdez("Jelszó"));
                 System.out.println("Bejelentkezve: " + b.user().email());
                 return b;
             } catch (HttpHiba e) {
@@ -112,12 +113,12 @@ public class Konzol {
         }
     }
 
-    // ===== 1. Autók =====
+    // 1. Autók
 
     private static void listazzAutokat() throws Exception {
         System.out.println("=== Autók telephelyenként ===");
-        List<Car> autok = KolcsonzoApi.cars();
-        for (Location l : KolcsonzoApi.locations()) {
+        List<Car> autok = KolcsonzesSzolgaltatas.autok();
+        for (Location l : KolcsonzesSzolgaltatas.telephelyek()) {
             System.out.println(l.city() + ", " + l.name());
             for (Car c : autok) {
                 if (l.id().equals(c.currentLocationId())) {
@@ -128,12 +129,12 @@ public class Konzol {
     }
 
     private static String autoSor(Car c) {
-        String allapot = c.status().equals("AVAILABLE") ? "" : "  – nem kölcsönözhető (" + c.status() + ")";
+        String allapot = KolcsonzesSzolgaltatas.kolcsonozheto(c) ? "" : "  – nem kölcsönözhető (" + c.status() + ")";
         return "#" + c.id() + "  " + c.brandName() + " " + c.model() + " (" + c.fuelType() + "), "
                 + c.dailyPrice() + "/nap" + allapot;
     }
 
-    // ===== 2. Kölcsönzés =====
+    // Kölcsönzés
 
     private static void kolcsonozz() throws Exception {
         listazzAutokat();
@@ -143,14 +144,14 @@ public class Konzol {
             return;
         }
 
-        List<Location> helyek = KolcsonzoApi.locations();
-        System.out.println("Visszaadás helye:");
+        List<Location> helyek = KolcsonzesSzolgaltatas.telephelyek();
+        System.out.println("Leadás helye:");
         for (Location l : helyek) {
             System.out.println("   #" + l.id() + "  " + l.city() + ", " + l.name());
         }
         Long celId = valasszHelyet(helyek);
 
-        // Az AVAILABLE csak azt jelenti, hogy az autó most szabad; a kért napokra
+        // Az AVAILABLE csak azt jelenti, hogy az autó most szabad, de a kért napokra
         // már lehet foglalása. Ilyenkor más dátum vagy más autó választható.
         while (true) {
             LocalDate indul = datum("Mikor indulsz? (éééé-hh-nn)");
@@ -160,8 +161,7 @@ public class Konzol {
                 continue;
             }
             try {
-                Kolcsonzes k = KolcsonzoApi.reserve(car.id(), car.currentLocationId(), celId,
-                        indul + "T10:00:00", erkez + "T10:00:00", token());
+                Kolcsonzes k = KolcsonzesSzolgaltatas.kolcsonoz(car, celId, indul, erkez, token());
                 System.out.println("Lefoglalva: " + kolcsonzesSor(k, helyNevek(helyek)));
                 if (igen("Szeretnél ehhez az autóhoz üzemanyagot foglalni?")) {
                     foglaljUzemanyagot(k);
@@ -186,16 +186,15 @@ public class Konzol {
         }
     }
 
-    /** null, ha a felhasználó üresen hagyja (mégsem). */
     private static Car valasszAutot() {
         while (true) {
-            String id = kerdez("Melyik autót kölcsönzöd? (azonosító, üresen hagyva mégsem)");
+            String id = kerdez("Melyik autót kölcsönzöd? (azonosító, üresen hagyd, ha mégsem!)");
             if (id.isEmpty()) {
                 return null;
             }
             try {
-                Car car = KolcsonzoApi.car(Long.valueOf(id));
-                if (car.status().equals("AVAILABLE")) {
+                Car car = KolcsonzesSzolgaltatas.auto(Long.parseLong(id));
+                if (KolcsonzesSzolgaltatas.kolcsonozheto(car)) {
                     return car;
                 }
                 System.out.println("Ez az autó most nem kölcsönözhető (" + car.status() + ").");
@@ -213,7 +212,6 @@ public class Konzol {
                     return valasztott;
                 }
             } catch (NumberFormatException e) {
-                // alább kiírjuk a hibát
             }
             System.out.println("Nincs ilyen telephely, válassz a listából!");
         }
@@ -229,21 +227,22 @@ public class Konzol {
         }
     }
 
-    // ===== 3. Foglalások és üzemanyag =====
+    // 3. Foglalások és üzemanyag
 
-    private static void listazzFoglalasaimat() throws Exception {
+    private static void listazdFoglalasaimat() throws Exception {
         System.out.println("=== Foglalásaim ===");
-        List<Kolcsonzes> mind = KolcsonzoApi.foglalasaim(token());
-        Map<Long, String> helyek = helyNevek(KolcsonzoApi.locations());
-        List<Bejegyzes> naplo = UzemanyagNaplo.mind();
+        List<Kolcsonzes> mind = KolcsonzesSzolgaltatas.foglalasaim(token());
+        Map<Long, String> helyek = helyNevek(KolcsonzesSzolgaltatas.telephelyek());
+        Map<String, List<Bejegyzes>> uzemanyagok = UzemanyagSzolgaltatas.kolcsonzesenkent();
 
-        // A lemondott/lezárt kölcsönzések csak akkor látszanak, ha van hozzájuk üzemanyag,
+        // A lemondott vagy lezárt kölcsönzések csak akkor látszanak, ha van hozzájuk
+        // üzemanyag,
         // mert az üzemanyag-foglalás akkor is megmarad.
         int rejtett = 0;
         boolean volt = false;
         for (Kolcsonzes k : mind) {
-            List<Bejegyzes> uzemanyag = naplo.stream().filter(b -> b.kolcsonzesId().equals(k.id())).toList();
-            if (!aktiv(k) && uzemanyag.isEmpty()) {
+            List<Bejegyzes> uzemanyag = uzemanyagok.getOrDefault(k.id(), List.of());
+            if (!KolcsonzesSzolgaltatas.aktiv(k) && uzemanyag.isEmpty()) {
                 rejtett++;
                 continue;
             }
@@ -272,7 +271,7 @@ public class Konzol {
     private static String uzemanyagSor(Bejegyzes b) {
         String allapot;
         try {
-            LefoglaltUzemanyag f = KeszletApi.feladat(b.foglalasId());
+            KeszletMuvelet f = UzemanyagSzolgaltatas.allapot(b);
             allapot = switch (f.status()) {
                 case DONE -> "lefoglalva";
                 case FAILED -> "sikertelen: " + f.failureReason();
@@ -292,10 +291,6 @@ public class Konzol {
         return idopont == null || idopont.length() < 10 ? String.valueOf(idopont) : idopont.substring(0, 10);
     }
 
-    private static boolean aktiv(Kolcsonzes k) {
-        return !k.status().equals("CANCELLED") && !k.status().equals("COMPLETED");
-    }
-
     private static String kolcsonzesAllapot(String status) {
         return switch (status) {
             case "PENDING" -> "függőben";
@@ -307,19 +302,20 @@ public class Konzol {
         };
     }
 
-    /** Az aktív kölcsönzések közül választ; null, ha nincs ilyen, vagy a felhasználó üresen hagyja. */
+    // Az aktív kölcsönzések közül választ. Null, ha nincs ilyen kölcsönzés, vagy a
+    // felhasználó üresen hagyja.
     private static Kolcsonzes valasszKolcsonzest(String kerdes) throws Exception {
-        List<Kolcsonzes> aktivak = KolcsonzoApi.foglalasaim(token()).stream().filter(Konzol::aktiv).toList();
+        List<Kolcsonzes> aktivak = KolcsonzesSzolgaltatas.aktivKolcsonzesek(token());
         if (aktivak.isEmpty()) {
             System.out.println("Nincs aktív kölcsönzésed.");
             return null;
         }
-        Map<Long, String> helyek = helyNevek(KolcsonzoApi.locations());
+        Map<Long, String> helyek = helyNevek(KolcsonzesSzolgaltatas.telephelyek());
         for (Kolcsonzes k : aktivak) {
             System.out.println(kolcsonzesSor(k, helyek));
         }
         while (true) {
-            String id = kerdez(kerdes + " (azonosító, üresen hagyva mégsem)");
+            String id = kerdez(kerdes + " (azonosító, hagyd üresen, ha mégsem!)");
             if (id.isEmpty()) {
                 return null;
             }
@@ -332,17 +328,13 @@ public class Konzol {
         }
     }
 
-    // ===== 4. Üzemanyag-foglalás =====
+    // 4. Üzemanyag-foglalás
 
     private static void foglaljUzemanyagotKolcsonzeshez() throws Exception {
         Kolcsonzes k = valasszKolcsonzest("Melyik autóhoz foglalsz üzemanyagot?");
         if (k != null) {
             foglaljUzemanyagot(k);
         }
-    }
-
-    /** Egy kút egy tartálya, amelybe az autó üzemanyaga tankolható. */
-    private record KutTartaly(Station kut, FuelStock tartaly) {
     }
 
     private static void foglaljUzemanyagot(Kolcsonzes kolcsonzes) throws Exception {
@@ -353,14 +345,7 @@ public class Konzol {
         }
 
         // 1. A megfelelő tartályok kutanként
-        List<KutTartaly> mind = new ArrayList<>();
-        for (Station s : KeszletApi.stations()) {
-            for (FuelStock f : KeszletApi.stocks(s.id())) {
-                if (uzemanyag.tankolhato(f.fuelType())) {
-                    mind.add(new KutTartaly(s, f));
-                }
-            }
-        }
+        List<KutTartaly> mind = UzemanyagSzolgaltatas.illoTartalyok(uzemanyag);
         System.out.println("=== " + uzemanyag + " autóhoz való kutak ===");
         Station elozo = null;
         for (KutTartaly j : mind) {
@@ -374,11 +359,11 @@ public class Konzol {
         // 2. Város alapján szűkítünk
         List<KutTartaly> jeloltek;
         while (true) {
-            String varos = kerdez("Melyik városban tankolnál? (üresen hagyva mégsem)");
+            String varos = kerdez("Melyik városban tankolnál? (üresen hagyd, ha mégsem tankolsz!)");
             if (varos.isEmpty()) {
                 return;
             }
-            jeloltek = mind.stream().filter(j -> j.kut().city().equalsIgnoreCase(varos)).toList();
+            jeloltek = UzemanyagSzolgaltatas.varosban(mind, varos);
             if (!jeloltek.isEmpty()) {
                 break;
             }
@@ -423,17 +408,11 @@ public class Konzol {
         }
 
         // 5. Foglalás, majd várakozás, amíg a worker feldolgozza
-        LefoglaltUzemanyag foglalas = KeszletApi.foglaljUzemanyagot(tartaly.id(), liter);
-        for (int i = 0; i < 20 && !feldolgozva(foglalas); i++) {
-            Thread.sleep(500);
-            foglalas = KeszletApi.feladat(foglalas.id());
-        }
+        KeszletMuvelet foglalas = UzemanyagSzolgaltatas.foglal(kolcsonzes, valasztott, liter);
         if (foglalas.status() == OperationStatus.FAILED) {
             System.out.println("Az üzemanyag-foglalás nem sikerült: " + foglalas.failureReason());
             return;
         }
-        UzemanyagNaplo.hozzaad(new Bejegyzes(kolcsonzes.id(), foglalas.id(), tartaly.id(),
-                valasztott.kut().city(), valasztott.kut().name(), tartaly.fuelType(), liter));
         if (foglalas.status() == OperationStatus.DONE) {
             System.out.println("Lefoglalva: " + liter + " liter " + tartaly.fuelType() + ", "
                     + valasztott.kut().city() + ", " + valasztott.kut().name());
@@ -442,18 +421,14 @@ public class Konzol {
         }
     }
 
-    private static boolean feldolgozva(LefoglaltUzemanyag foglalas) {
-        return foglalas.status() == OperationStatus.DONE || foglalas.status() == OperationStatus.FAILED;
-    }
-
-    // ===== 5. Lemondás =====
+    // 5. Lemondás
 
     private static void mondjLeKolcsonzest() throws Exception {
         Kolcsonzes k = valasszKolcsonzest("Melyik kölcsönzést mondod le?");
         if (k == null) {
             return;
         }
-        long liter = UzemanyagNaplo.kolcsonzeshez(k.id()).stream().mapToLong(Bejegyzes::liter).sum();
+        long liter = UzemanyagSzolgaltatas.foglaltLiter(k);
         if (liter > 0) {
             System.out.println("Figyelem: az autóhoz foglalt " + liter
                     + " liter üzemanyag foglalva marad, azt nem lehet lemondani.");
@@ -461,7 +436,7 @@ public class Konzol {
         if (!igen("Biztosan lemondod a #" + k.id() + " kölcsönzést?")) {
             return;
         }
-        Kolcsonzes lemondott = KolcsonzoApi.lemond(k.id(), token());
+        Kolcsonzes lemondott = KolcsonzesSzolgaltatas.lemond(k, token());
         System.out.println("A #" + lemondott.id() + " kölcsönzés lemondva.");
     }
 }

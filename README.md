@@ -64,7 +64,9 @@ Ahol a program választást kér, üres Enterrel vissza lehet lépni. A szervere
 | Fájl | Szerepe |
 |---|---|
 | `Main.java` | belépési pont |
-| `Konzol.java` | a menü és minden felhasználói párbeszéd |
+| `Konzol.java` | a menü és minden felhasználói párbeszéd, csak kérdez és kiír |
+| `KolcsonzesSzolgaltatas.java` | a kölcsönzés szabályai: mi kölcsönözhető, mi aktív, kölcsönzés és lemondás |
+| `UzemanyagSzolgaltatas.java` | az autóhoz illő tartályok, az üzemanyag-foglalás és megvárása, a kölcsönzéshez rendelés |
 | `KolcsonzoApi.java` | az autókölcsönző API hívásai |
 | `KeszletApi.java` | az üzemanyagkészlet API hívásai |
 | `JsonHttp.java` | GET és POST kérések, JSON átalakítás |

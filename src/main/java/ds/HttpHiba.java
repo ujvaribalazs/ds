@@ -1,6 +1,6 @@
 package ds;
 
-/** Hibás HTTP válasz: a státuszkód és a szerver által küldött hibaüzenet. */
+// Hibás HTTP válasz: a státuszkód és a szerver által küldött hibaüzenet.
 public class HttpHiba extends RuntimeException {
 
     private final int statusz;
@@ -16,7 +16,8 @@ public class HttpHiba extends RuntimeException {
         return statusz;
     }
 
-    /** A szerver hibaüzenete (a JSON `message` mezője, ha van), különben a teljes válasz. */
+    // A szerver hibaüzenete (a JSON `message` mezője, ha van), különben a teljes
+    // válasz.
     public String uzenet() {
         return uzenet;
     }
